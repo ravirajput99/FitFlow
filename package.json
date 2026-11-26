@@ -1,0 +1,48 @@
+{
+  "name": "fitflow",
+  "private": true,
+  "description": "FitFlow - multi-gym management SaaS",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "db:generate": "pnpm --filter @fitflow/db generate",
+    "db:migrate": "pnpm --filter @fitflow/db migrate:dev",
+    "db:deploy": "pnpm --filter @fitflow/db migrate:deploy",
+    "db:seed": "pnpm --filter @fitflow/db seed",
+    "db:studio": "pnpm --filter @fitflow/db studio",
+    "db:embedded": "pnpm --filter @fitflow/db embedded",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yml,css}\""
+  },
+  "devDependencies": {
+    "prettier": "3.10.1",
+    "turbo": "2.11.13",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64",
+      "@embedded-postgres/linux-arm64",
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/windows-x64",
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf"
+    ]
+  }
+}

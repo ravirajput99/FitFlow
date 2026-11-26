@@ -1,0 +1,38 @@
+{
+  "name": "@fitflow/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Types, Zod schemas, permissions and constants shared by API, web and mobile",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/shared.test.ts"
+  },
+  "dependencies": {
+    "zod": "4.1.13"
+  },
+  "devDependencies": {
+    "@fitflow/config": "workspace:*",
+    "@types/node": "22.20.7",
+    "eslint": "9.39.5",
+    "tsup": "8.5.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

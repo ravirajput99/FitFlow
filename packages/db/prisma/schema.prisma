@@ -1,0 +1,273 @@
+// FitFlow database schema.
+//
+// Multi-tenancy: every tenant-owned table has a `gymId` column. Isolation is enforced twice:
+//   1. App level: `forTenant()` in src/tenancy.ts injects `gymId` into queries.
+//   2. DB level: PostgreSQL row-level security (see the `rls` migration) as a backstop.
+// When you add a tenant-owned model: give it `gymId`, add it to TENANT_MODELS in
+// src/tenancy.ts and enable RLS for its table in a migration.
+//
+// Money is stored as integer paise (1 INR = 100 paise) to avoid floating point errors.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GymStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+}
+
+/// A gym business that subscribes to FitFlow (the tenant).
+model Gym {
+  id               String    @id @default(cuid())
+  slug             String    @unique
+  name             String
+  legalName        String?
+  gstin            String?
+  /// Two-digit GST state code (e.g. "27" Maharashtra); decides CGST+SGST vs IGST.
+  gstStateCode     String?
+  phone            String?
+  email            String?
+  address          String?
+  city             String?
+  state            String?
+  pincode          String?
+  logoUrl          String?
+  timezone         String    @default("Asia/Kolkata")
+  currency         String    @default("INR")
+  invoicePrefix    String    @default("INV")
+  memberCodePrefix String    @default("M")
+  /// Next number used to build member codes (e.g. M0001). Incremented atomically.
+  nextMemberNumber Int       @default(1)
+  status           GymStatus @default(TRIAL)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  branches    Branch[]
+  roles       Role[]
+  users       User[]
+  members     Member[]
+  plans       Plan[]
+  memberships Membership[]
+  auditLogs   AuditLog[]
+  otpCodes    OtpCode[]
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  gymId     String
+  name      String
+  address   String?
+  city      String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gym     Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  members Member[]
+
+  @@unique([gymId, name])
+  @@index([gymId])
+}
+
+/// A gym's role. System roles (OWNER, MANAGER...) are created per gym from @fitflow/shared;
+/// custom roles use any key. `permissions` holds keys from PERMISSIONS in @fitflow/shared.
+model Role {
+  id          String   @id @default(cuid())
+  gymId       String
+  key         String
+  name        String
+  description String?
+  permissions String[]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gym   Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  users User[]
+
+  @@unique([gymId, key])
+  @@index([gymId])
+}
+
+/// Anyone who can log in: gym staff, trainers, members (via OTP) and FitFlow super-admins.
+/// Super-admins have gymId = null.
+model User {
+  id               String    @id @default(cuid())
+  gymId            String?
+  roleId           String?
+  name             String
+  email            String?
+  phone            String?
+  passwordHash     String?
+  isSuperAdmin     Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  /// Consecutive wrong passwords; reset on success. Reaching the limit sets lockedUntil.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  gym           Gym?           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  role          Role?          @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  member        Member?
+  refreshTokens RefreshToken[]
+
+  @@unique([gymId, email])
+  @@unique([gymId, phone])
+  @@index([gymId])
+}
+
+model Member {
+  id                    String    @id @default(cuid())
+  gymId                 String
+  branchId              String?
+  /// Login account, created on first OTP login from the member app.
+  userId                String?   @unique
+  memberCode            String
+  firstName             String
+  lastName              String?
+  phone                 String
+  email                 String?
+  gender                Gender?
+  dateOfBirth           DateTime? @db.Date
+  address               String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  medicalNotes          String?
+  tags                  String[]
+  photoUrl              String?
+  joinedAt              DateTime  @default(now())
+  /// Soft delete: members are never hard-deleted because invoices reference them.
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  gym         Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  branch      Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  memberships Membership[]
+
+  @@unique([gymId, memberCode])
+  @@index([gymId, deletedAt, createdAt])
+  @@index([gymId, phone])
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  gymId           String
+  name            String
+  description     String?
+  durationDays    Int
+  pricePaise      Int
+  joiningFeePaise Int      @default(0)
+  /// GST rate in basis points (1800 = 18%).
+  taxRateBps      Int      @default(1800)
+  /// SAC code for gym / fitness centre services.
+  sacCode         String   @default("999723")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  gym         Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@unique([gymId, name])
+  @@index([gymId])
+}
+
+model Membership {
+  id            String           @id @default(cuid())
+  gymId         String
+  memberId      String
+  planId        String
+  startDate     DateTime         @db.Date
+  endDate       DateTime         @db.Date
+  status        MembershipStatus @default(ACTIVE)
+  pricePaise    Int
+  discountPaise Int              @default(0)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([gymId, memberId])
+  @@index([gymId, status, endDate])
+}
+
+/// Who changed what. gymId is null for platform-level (super-admin) actions.
+model AuditLog {
+  id          String   @id @default(cuid())
+  gymId       String?
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String?
+  before      Json?
+  after       Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  gym Gym? @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId, entity, entityId])
+  @@index([gymId, createdAt])
+}
+
+/// Rotating refresh tokens. Only a SHA-256 hash of the secret part is stored.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// One-time login codes for phone (OTP) login. Only a hash of the code is stored.
+model OtpCode {
+  id         String    @id @default(cuid())
+  gymId      String
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId, phone, createdAt])
+}

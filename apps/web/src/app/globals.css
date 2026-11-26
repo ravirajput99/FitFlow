@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+/* Scan the shared component package for class names too. */
+@source '../../../../packages/ui/src';
+
+/* Colour tokens: change the brand here; light and dark themes both read from these. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --muted: #eef0f3;
+  --border: #dde1e6;
+  --fg: #16191d;
+  --fg-muted: #5f6875;
+  --primary: #0f766e;
+  --primary-fg: #ffffff;
+  --ring: #14b8a6;
+  --danger: #c2410c;
+  --success: #15803d;
+  --warning: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1214;
+    --surface: #171b1f;
+    --muted: #22282d;
+    --border: #2e353b;
+    --fg: #e8ecef;
+    --fg-muted: #9aa5ae;
+    --primary: #2dd4bf;
+    --primary-fg: #04201d;
+    --ring: #5eead4;
+    --danger: #fb923c;
+    --success: #4ade80;
+    --warning: #fbbf24;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-ring: var(--ring);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@fitflow/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared React UI components (Tailwind CSS) for FitFlow web apps",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "tailwind-merge": "3.7.1"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@fitflow/config": "workspace:*",
+    "@types/react": "19.2.18",
+    "eslint": "9.39.5",
+    "react": "19.2.9",
+    "typescript": "5.9.3"
+  }
+}
